@@ -93,12 +93,10 @@ fun LocationScreen(modifier: Modifier = Modifier, viewModel: LocationViewModel =
 
     val forecast: State<LocationUiState> = viewModel.uiState.collectAsStateWithLifecycle(Loading)
 
-    when (forecast.value) {
+    when (val value = forecast.value) {
         is Success -> {
             LocationScreenForecast(
-                (forecast.value as Success).data,
-                onLocationChange = viewModel::changeLocation,
-                modifier = modifier
+                value.data, onLocationChange = viewModel::changeLocation, modifier = modifier
             )
         }
         is Loading -> Text("Loading...")
@@ -108,11 +106,9 @@ fun LocationScreen(modifier: Modifier = Modifier, viewModel: LocationViewModel =
 
 @Composable
 fun LocationScreenForecast(
-    locationForecast: Forecast,
-    onLocationChange: (String) -> Unit,
-    modifier: Modifier = Modifier
+    locationForecast: Forecast, onLocationChange: (String) -> Unit, modifier: Modifier = Modifier
 ) {
-    val expandedDays = remember { mutableStateMapOf<String, Int>() }
+    val expandedDays = rememberSaveable(saver = indexSaver) { mutableStateMapOf() }
     LocationScreenForecast(
         forecast = locationForecast,
         onLocationChange = onLocationChange,
@@ -122,10 +118,8 @@ fun LocationScreenForecast(
     )
 }
 
-val indexSaver = listSaver<MutableMap<String, Int>, Pair<String, Int>>(
-    save = { it -> it.entries.map { it.key to it.value } },
-    restore = { mutableStateMapOf(*it.toTypedArray()) }
-)
+val indexSaver = listSaver<MutableMap<String, Int>, Pair<String, Int>>(save = { it -> it.entries.map { it.key to it.value } },
+    restore = { mutableStateMapOf(*it.toTypedArray()) })
 
 @Composable
 fun LocationScreenForecast(
@@ -138,9 +132,7 @@ fun LocationScreenForecast(
     Column(modifier = modifier.verticalScroll(rememberScrollState())) {
 
         TopAppBar(
-            forecast.location.name,
-            onLocationChange,
-            Modifier.align(CenterHorizontally)
+            forecast.location.name, onLocationChange, Modifier.align(CenterHorizontally)
         )
 
         Today(forecast.forecastToday)
@@ -153,12 +145,11 @@ fun LocationScreenForecast(
             .semantics {
                 contentDescription = label
             }) {
-            val index = 0
-            WeekForecastRow(
-                forecast.forecastWeek[index],
-                expanded = index == expandedDayIndex,
-                onClick = { onExpandedChanged(if (expandedDayIndex == index) -1 else index) }
-            )
+            forecast.forecastWeek.forEachIndexed { index, forecastDay ->
+                WeekForecastRow(forecastDay,
+                    expanded = index == expandedDayIndex,
+                    onClick = { onExpandedChanged(if (expandedDayIndex == index) -1 else index) })
+            }
         }
     }
 }
@@ -166,48 +157,33 @@ fun LocationScreenForecast(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TopAppBar(
-    locationName: String,
-    onLocationChange: (name: String) -> Unit,
-    modifier: Modifier = Modifier
+    locationName: String, onLocationChange: (name: String) -> Unit, modifier: Modifier = Modifier
 ) {
-    CenterAlignedTopAppBar(
-        modifier = modifier,
-        title = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(
-                    onClick = { onLocationChange("Mountain View") }
-                ) {
-                    Icon(
-                        Icons.Default.KeyboardArrowLeft,
-                        stringResource(R.string.prev_location)
-                    )
-                }
-                Text(
-                    "//TODO",
-                    modifier = Modifier.padding(horizontal = 32.dp)
+    CenterAlignedTopAppBar(modifier = modifier, title = {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = { onLocationChange("Sunnyvale") }) {
+                Icon(
+                    Icons.Default.KeyboardArrowLeft, stringResource(R.string.prev_location)
                 )
-                IconButton(
-                    onClick = { onLocationChange("Sunnyvale") }
-                ) {
-                    Icon(
-                        Icons.Default.KeyboardArrowRight,
-                        stringResource(R.string.next_location)
-                    )
-                }
+            }
+            Text(
+                locationName, modifier = Modifier.padding(horizontal = 32.dp)
+            )
+            IconButton(onClick = { onLocationChange("Mountain View") }) {
+                Icon(
+                    Icons.Default.KeyboardArrowRight, stringResource(R.string.next_location)
+                )
             }
         }
-    )
+    })
 }
 
 @Composable
 fun Today(
-    forecastTimes: List<ForecastTime>,
-    modifier: Modifier = Modifier
+    forecastTimes: List<ForecastTime>, modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = modifier,
-        shape = MaterialTheme.shapes.small,
-        colors = CardDefaults.cardColors(
+        modifier = modifier, shape = MaterialTheme.shapes.small, colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.primaryContainer
         )
     ) {
@@ -227,12 +203,9 @@ fun Today(
             )
             Spacer(Modifier.width(16.dp))
             Text(
-                "${now.temp}°",
-                style = MaterialTheme.typography.displayLarge.copy(
+                "${now.temp}°", style = MaterialTheme.typography.displayLarge.copy(
                     shadow = Shadow(
-                        color = Color.Black.copy(alpha = 0.3f),
-                        offset = Offset(3f, 3f),
-                        blurRadius = 6f
+                        color = Color.Black.copy(alpha = 0.3f), offset = Offset(3f, 3f), blurRadius = 6f
                     )
                 )
             )
@@ -243,13 +216,11 @@ fun Today(
                 .align(CenterHorizontally)
         ) {
             Text(
-                stringResource(iconToText(now.icon)),
-                style = MaterialTheme.typography.labelLarge
+                stringResource(iconToText(now.icon)), style = MaterialTheme.typography.labelLarge
             )
             Text(stringResource(R.string.title_card_date))
         }
         DayForecastTimes(forecastTimes)
-
     }
 }
 
@@ -262,10 +233,9 @@ fun DayForecastTimes(forecastTimes: List<ForecastTime>) {
             .fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        forecastTimes.forEachIndexed { index, forecastTime ->
+        forecastTimes.forEachIndexed { _, forecastTime ->
             TodaysForecastCard(
-                forecastTime = forecastTime,
-                isSelected = false
+                forecastTime = forecastTime, isSelected = false
             )
         }
     }
@@ -273,30 +243,23 @@ fun DayForecastTimes(forecastTimes: List<ForecastTime>) {
 
 @Composable
 private fun WeekForecastRow(
-    forecastDay: ForecastDay,
-    expanded: Boolean,
-    onClick: () -> Unit
+    forecastDay: ForecastDay, expanded: Boolean, onClick: () -> Unit
 ) {
 
-    Surface(
-        tonalElevation = if (expanded) 1.dp else 0.dp,
+    Surface(tonalElevation = if (expanded) 1.dp else 0.dp,
         shape = MaterialTheme.shapes.small,
         modifier = Modifier
             .padding(top = 16.dp)
             .semantics {
                 toggleableState = if (expanded) ToggleableState.On else ToggleableState.Off
-            }
-    ) {
+            }) {
         Column {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(38.dp)
-                    .clickable {
-                        onClick()
-                    }
-            ) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier
+                .fillMaxWidth()
+                .height(38.dp)
+                .clickable {
+                    onClick()
+                }) {
                 Text(
                     forecastDay.day,
                     modifier = Modifier
@@ -305,8 +268,7 @@ private fun WeekForecastRow(
                     style = MaterialTheme.typography.labelMedium
                 )
                 Row(
-                    modifier = Modifier.weight(30f),
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier.weight(30f), verticalAlignment = Alignment.CenterVertically
                 ) {
                     Image(
                         painterResource(iconToDrawable(forecastDay.icon)),
@@ -316,17 +278,14 @@ private fun WeekForecastRow(
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        stringResource(iconToText(forecastDay.icon)),
-                        style = MaterialTheme.typography.bodySmall
+                        stringResource(iconToText(forecastDay.icon)), style = MaterialTheme.typography.bodySmall
                     )
                 }
                 Text(
-                    "${forecastDay.maxTemp}° | ${forecastDay.minTemp}°",
-                    style = MaterialTheme.typography.labelMedium
+                    "${forecastDay.maxTemp}° | ${forecastDay.minTemp}°", style = MaterialTheme.typography.labelMedium
                 )
                 Icon(
-                    if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                    if (expanded) {
+                    if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, if (expanded) {
                         stringResource(R.string.dropdown_less)
                     } else {
                         stringResource(R.string.dropdown_more)
@@ -343,17 +302,13 @@ private fun WeekForecastRow(
 
 @Composable
 fun TodaysForecastCard(
-    forecastTime: ForecastTime,
-    isSelected: Boolean,
-    modifier: Modifier = Modifier
+    forecastTime: ForecastTime, isSelected: Boolean, modifier: Modifier = Modifier
 ) {
     val backgroundModifier = if (isSelected) Modifier.background(
-        MaterialTheme.colorScheme.inversePrimary,
-        MaterialTheme.shapes.small
+        MaterialTheme.colorScheme.inversePrimary, MaterialTheme.shapes.small
     ) else Modifier
     Column(
-        horizontalAlignment = CenterHorizontally,
-        modifier = modifier
+        horizontalAlignment = CenterHorizontally, modifier = modifier
             .then(backgroundModifier)
             .padding(4.dp)
             .size(60.dp, 96.dp)
@@ -432,13 +387,8 @@ fun WeekForecastPreview() {
     MyApplicationTheme {
         WeekForecastRow(
             ForecastDay(
-                day = "Tomorrow",
-                maxTemp = 32,
-                minTemp = 18,
-                icon = SUNNY,
-                times = fakeForecast1.forecastToday
-            ),
-            expanded = true
+                day = "Tomorrow", maxTemp = 32, minTemp = 18, icon = SUNNY, times = fakeForecast1.forecastToday
+            ), expanded = true
         ) {}
     }
 }
@@ -449,11 +399,8 @@ fun TodaysForecastCardPreview() {
     MyApplicationTheme {
         TodaysForecastCard(
             forecastTime = ForecastTime(
-                time = "8:00 AM",
-                temp = 25,
-                icon = CLOUDY
-            ),
-            isSelected = true
+                time = "8:00 AM", temp = 25, icon = CLOUDY
+            ), isSelected = true
         )
     }
 }

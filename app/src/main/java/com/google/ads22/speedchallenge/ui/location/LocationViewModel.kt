@@ -16,6 +16,7 @@
 
 package com.google.ads22.speedchallenge.ui.location
 
+import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -36,15 +37,16 @@ import javax.inject.Inject
 
 @HiltViewModel
 class LocationViewModel @Inject constructor(
-    private val forecastRepository: ForecastRepository,
-    private val savedStateHandle: SavedStateHandle
+    private val forecastRepository: ForecastRepository, private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
     private val locationId = savedStateHandle.getStateFlow(LOCATION_ID_KEY, "Sunnyvale")
 
     val uiState = locationId.flatMapLatest { location ->
-        forecastRepository.getForecast(location)
-            .map<Forecast, LocationUiState> { Success(it) }
+        forecastRepository.getForecast(location).map<Forecast, LocationUiState> {
+            Success(it) }.catch {
+             emit(Error(it))
+            }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Loading)
 
     fun changeLocation(id: String) {
@@ -52,6 +54,7 @@ class LocationViewModel @Inject constructor(
             savedStateHandle[LOCATION_ID_KEY] = id
         }
     }
+
     companion object {
         const val LOCATION_ID_KEY = "LOCATION_ID_KEY"
     }
